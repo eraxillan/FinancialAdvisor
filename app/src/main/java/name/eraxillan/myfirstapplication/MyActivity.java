@@ -1,7 +1,8 @@
 package name.eraxillan.myfirstapplication;
 
+import android.app.DatePickerDialog;
+import android.app.Dialog;
 import android.content.Context;
-import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.graphics.Color;
@@ -15,8 +16,9 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
-import android.widget.EditText;
+import android.widget.DatePicker;
 import android.widget.ListView;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -24,9 +26,8 @@ import java.text.DateFormat;
 import java.text.DecimalFormat;
 import java.text.ParseException;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Currency;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
@@ -125,16 +126,54 @@ public class MyActivity extends AppCompatActivity {
     }
 
     //----------------------------------------------------------------------------------------------
-    public final static String EXTRA_MESSAGE = "com.mycompany.myfirstapp.MESSAGE";
+    int DIALOG_START_DATE = 1;
+    int m_startYear = 2011;
+    int m_startMonth = 2;
+    int m_startDay = 3;
+    int DIALOG_END_DATE = 2;
+    int m_endYear = 2011;
+    int m_endMonth = 2;
+    int m_endDay = 4;
 
-    /** Called when the user clicks the Send button */
-    public void sendMessage(View view) {
-        Intent intent = new Intent(this, DisplayMessageActivity.class);
-        EditText editText = (EditText) findViewById(R.id.edit_message);
-        String message = editText.getText().toString();
-        intent.putExtra(EXTRA_MESSAGE, message);
-        startActivity(intent);
+    DatePickerDialog.OnDateSetListener m_startDateCallback = new DatePickerDialog.OnDateSetListener() {
+        public void onDateSet(DatePicker view, int year, int monthOfYear, int dayOfMonth) {
+            m_startYear = year;
+            m_startMonth = monthOfYear;
+            m_startDay = dayOfMonth;
+            TextView tvDate = (TextView) findViewById(R.id.tvStartDate);
+            tvDate.setText("From: " + m_startDay + "." + (m_startMonth + 1) + "." + m_startDay);
+        }
+    };
+
+    DatePickerDialog.OnDateSetListener m_endDateCallback = new DatePickerDialog.OnDateSetListener() {
+        public void onDateSet(DatePicker view, int year, int monthOfYear, int dayOfMonth) {
+            m_endYear = year;
+            m_endMonth = monthOfYear;
+            m_endDay = dayOfMonth;
+            TextView tvDate = (TextView) findViewById(R.id.tvEndDate);
+            tvDate.setText("Till: " + m_endDay + "." + (m_endMonth + 1) + "." + m_endDay);
+        }
+    };
+
+    public void onStartDateClick(View view) {
+        showDialog(DIALOG_START_DATE);
     }
+
+    public void onEndDateClick(View view) {
+        showDialog(DIALOG_END_DATE);
+    }
+
+    protected Dialog onCreateDialog(int id) {
+        if (id == DIALOG_START_DATE) {
+            DatePickerDialog tpd = new DatePickerDialog(this, m_startDateCallback, m_startYear, m_startMonth, m_startDay);
+            return tpd;
+        } else if (id == DIALOG_END_DATE) {
+            DatePickerDialog tpd = new DatePickerDialog(this, m_endDateCallback, m_endYear, m_endMonth, m_endDay);
+            return tpd;
+        }
+        return super.onCreateDialog(id);
+    }
+
     //----------------------------------------------------------------------------------------------
 
     private class SberbankSms {
@@ -239,7 +278,7 @@ public class MyActivity extends AppCompatActivity {
                 if (bodyColumnIndex < 0) continue;
                 String smsText = cursor.getString(bodyColumnIndex);
 
-                SberbankSms sms = parseSberbankSms("ECMC9705", smsText);
+                SberbankSms sms = parseSberbankSms(smsText);
                 if (sms.isValid()) {
                     Log.w(MY_TAG, "Skipping invalid Sberbank SMS");
                     result.add(sms);
@@ -255,16 +294,7 @@ public class MyActivity extends AppCompatActivity {
         return result;
     }
 
-    // TODO: sort by categories as original Android client do
-    private void processData() {
-        if (m_sms != null) return;
-
-        Log.i(MY_TAG, "Loading SMS data...");
-        m_sms = readSberbankSms();
-        Log.i(MY_TAG, "SMS data was successfully loaded, " + m_sms.size() + " SMS found");
-
-        Log.i(MY_TAG, "Sorting SMS data by target...");
-
+    ArrayList<CostsCategory> splitCostToCategories() {
         ArrayList<String> categoryStrings = new ArrayList<>();
         CostsCategory basicCommodities = new CostsCategory("Товары первой необходимости", getTotalCosts());
         CostsCategory medicamentCommodities = new CostsCategory("Лекарства", getTotalCosts());
@@ -275,9 +305,9 @@ public class MyActivity extends AppCompatActivity {
         CostsCategory nonEssentialsCommodities = new CostsCategory("Второстепенные товары", getTotalCosts());
         CostsCategory publicCateringCommodities = new CostsCategory("Общепит", getTotalCosts());
         CostsCategory remittances = new CostsCategory("Переводы, снятие наличных", getTotalCosts());
+        CostsCategory services = new CostsCategory("Оплата различных услуг", getTotalCosts());
 
-        for (SberbankSms sms : m_sms ) {
-
+        for (SberbankSms sms : m_sms) {
             if (sms.getOperation() == AccountOperation.PURCHASE) {
                 // Товары первой необходимости
                 if (sms.getTarget().startsWith("LUG DA POLE ")) {
@@ -328,8 +358,13 @@ public class MyActivity extends AppCompatActivity {
                     basicCommodities.addTarget("Мини-универсам во Владыкино", sms.getSum());
                     continue;
                 }
-                if (sms.getTarget().startsWith("MYASNAYA TOCHKA ")) {
+                if (sms.getTarget().startsWith("MYASNAYA TOCHKA")) {
                     basicCommodities.addTarget("Мясная точка", sms.getSum());
+                    continue;
+                }
+                // FIXME: "Южный Двор" shop have no name in SMS text
+                if (sms.getTarget().startsWith("ZHULEBINO Moskva, ul P")) {
+                    basicCommodities.addTarget("Южный Двор", sms.getSum());
                     continue;
                 }
                 //----------------------------------------------------------------------------------
@@ -346,7 +381,7 @@ public class MyActivity extends AppCompatActivity {
                     medicamentCommodities.addTarget("Аптека +", sms.getSum());
                     continue;
                 }
-                if (sms.getTarget().compareTo("APTEKA") == 0) {
+                if (sms.getTarget().contains("APTEKA")) {
                     medicamentCommodities.addTarget("Аптека (другая)", sms.getSum());
                     continue;
                 }
@@ -408,6 +443,18 @@ public class MyActivity extends AppCompatActivity {
                     nonEssentialsCommodities.addTarget("DNS", sms.getSum());
                     continue;
                 }
+                if (sms.getTarget().startsWith("LETUAL")) {
+                    nonEssentialsCommodities.addTarget("Ле'туаль", sms.getSum());
+                    continue;
+                }
+                if (sms.getTarget().startsWith("IL PERSONA")) {
+                    nonEssentialsCommodities.addTarget("Persona Labs", sms.getSum());
+                    continue;
+                }
+                if (sms.getTarget().startsWith("CLOUD*LINGUALEO.COM")) {
+                    nonEssentialsCommodities.addTarget("Ле'туаль", sms.getSum());
+                    continue;
+                }
                 //----------------------------------------------------------------------------------
                 // Кафе и рестораны
                 if (sms.getTarget().startsWith("MCDONALDS")) {
@@ -423,37 +470,64 @@ public class MyActivity extends AppCompatActivity {
                     continue;
                 }
                 //----------------------------------------------------------------------------------
-                // FIXME: implement other categories
-                categoryStrings.add( "PURCHASE: " + sms.getTarget());
+                // Unknown purchase category
+                categoryStrings.add("PURCHASE: " + sms.getTarget());
             } else if (sms.getOperation() == AccountOperation.REMITTANCE) {
                 if (sms.getTarget().startsWith("PEREVOD") || sms.getTarget().startsWith("SBOL")) {
                     remittances.addTarget("Денежные переводы", sms.getSum());
                     continue;
                 }
                 if (sms.getTarget().startsWith("ATM")) {
-                    publicCateringCommodities.addTarget("Снятие наличных", sms.getSum());
+                    remittances.addTarget("Снятие наличных", sms.getSum());
                     continue;
                 }
-                // FIXME: implement other categories
-                categoryStrings.add( "REMITTANCE: " + sms.getTarget());
+
+                // Unknown remittance category
+                categoryStrings.add("REMITTANCE: " + sms.getTarget());
+            } else if (sms.getOperation() == AccountOperation.CASH_WITHDRAWAL) {
+                String smsTarget = sms.getTarget();
+                Log.i(MY_TAG, smsTarget);
+
+                if (sms.getTarget().startsWith("ATM")) {
+                    remittances.addTarget("Снятие наличных", sms.getSum());
+                    continue;
+                }
+
+                // Unknown cash withdrawal operation
+                categoryStrings.add("CASH: " + smsTarget);
+            } else if (sms.getOperation() == AccountOperation.MOBILE_BANK_PAYMENT) {
+                String smsTarget = sms.getTarget();
+                Log.i(MY_TAG, smsTarget);
+
+                // Unknown mobile bank payment operation
+                categoryStrings.add("MOBILE BANK: " + smsTarget);
+            } else if (sms.getOperation() == AccountOperation.PAYMENT_FOR_SERVICES) {
+                String smsTarget = sms.getTarget();
+                Log.i(MY_TAG, smsTarget);
+
+                if (sms.getTarget().startsWith("BEELINE")) {
+                    communicationCommodities.addTarget("Билайн", sms.getSum());
+                    continue;
+                }
+
+                if (sms.getTarget().startsWith("MEGAFON")) {
+                    communicationCommodities.addTarget("Мегафон", sms.getSum());
+                    continue;
+                }
+
+                if (sms.getTarget().startsWith("USLUGI")) {
+                    services.addTarget("Другие услуги", sms.getSum());
+                    continue;
+                }
+
+                // Unknown service operation
+                categoryStrings.add("USLUGI: " + sms.getTarget());
+                continue;
             }
 
-
-            // FIXME: implement other categories
-
-            // FIXME: implement default ("Other") category
-//            categoryStrings.add(sms.getTarget());
+            // Unknown category
+            categoryStrings.add(sms.getTarget());
         }
-
-        float r1 = basicCommodities.getTotalCostsPercent();
-        float r2 = medicamentCommodities.getTotalCostsPercent();
-        float r3 = treatmentCommodities.getTotalCostsPercent();
-        float r4 = transportCommodities.getTotalCostsPercent();
-        float r5 = communicationCommodities.getTotalCostsPercent();
-        float r6 = clothingShoesCommodities.getTotalCostsPercent();
-        float r7 = nonEssentialsCommodities.getTotalCostsPercent();
-        float r8 = publicCateringCommodities.getTotalCostsPercent();
-        float r9 = remittances.getTotalCostsPercent();
 
         // Construct the data source
         ArrayList<CostsCategory> categories = new ArrayList<>();
@@ -466,11 +540,76 @@ public class MyActivity extends AppCompatActivity {
         categories.add(nonEssentialsCommodities);
         categories.add(publicCateringCommodities);
         categories.add(remittances);
+        categories.add(services);
+
+        //------------------------------------------------------------------------------------------
+        // Some assertions
+        float totalCostsPercent = basicCommodities.getTotalCostsPercent()
+                + medicamentCommodities.getTotalCostsPercent()
+                + treatmentCommodities.getTotalCostsPercent()
+                + transportCommodities.getTotalCostsPercent()
+                + communicationCommodities.getTotalCostsPercent()
+                + clothingShoesCommodities.getTotalCostsPercent()
+                + nonEssentialsCommodities.getTotalCostsPercent()
+                + publicCateringCommodities.getTotalCostsPercent()
+                + remittances.getTotalCostsPercent()
+                + services.getTotalCostsPercent();
+        if (Math.abs(totalCostsPercent - 100) > 1.0f) {
+            Log.e(MY_TAG, "Total sum of category costs part give " + totalCostsPercent + "% instead of 100");
+        }
+
+        if (categoryStrings.size() > 0) {
+            Log.e(MY_TAG, "Unknown categories detected:");
+            for (String cat : categoryStrings) Log.e(MY_TAG, cat);
+            Log.e(MY_TAG, "----------------------------");
+        }
+        //------------------------------------------------------------------------------------------
+
+        return categories;
+    }
+
+    ArrayList<String> parseCreditCardNames() {
+        HashSet<String> creditCardNames = new HashSet<>();
+        for (SberbankSms sms : m_sms )  creditCardNames.add(sms.getCardId());
+        ArrayList<String> creditCardNameList = new ArrayList<>();
+        for (String cardId : creditCardNames) creditCardNameList.add(cardId);
+        return creditCardNameList;
+    }
+
+    // TODO: sort by categories as original Android client do
+    private void processData() {
+        if (m_sms != null) return;
+
+        Log.i(MY_TAG, "Loading SMS data...");
+        m_sms = readSberbankSms();
+        Log.i(MY_TAG, "SMS data was successfully loaded, " + m_sms.size() + " SMS found");
+
+        Log.i(MY_TAG, "Sorting SMS data by target...");
+
+        // Fill the credit card list
+        ArrayList<String> creditCardNameList = parseCreditCardNames();
+        ArrayAdapter<String> cardIdAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, creditCardNameList);
+        Spinner cmbCards = (Spinner) findViewById(R.id.cmbCards);
+        if (cmbCards != null) {
+            cmbCards.setAdapter(cardIdAdapter);
+        }
+
         // Create the adapter to convert the array to views
+        ArrayList<CostsCategory> categories = splitCostToCategories();
+
+        //
+        float totalPercent = 0.f;
+        for (CostsCategory cat : categories) {
+            totalPercent += cat.getTotalCostsPercent();
+        }
+        //
+
         CostsCategoryAdapter adapter = new CostsCategoryAdapter(this, categories);
         // Attach the adapter to a ListView
         ListView listView = (ListView) findViewById(R.id.lvMain);
-        listView.setAdapter(adapter);
+        if (listView != null) {
+            listView.setAdapter(adapter);
+        }
 
         Log.i(MY_TAG, "SMS data sorting done");
     }
@@ -538,7 +677,31 @@ public class MyActivity extends AppCompatActivity {
         return result;
     }
 
-    SberbankSms parseSberbankSms(String aCreditCardId, String smsText) {
+    String parseSberbankCard(String smsText) {
+        // <credit card id> <short date> <short time> <action string> <sum in roubles> <shop> <current balance string>
+        String result = "";
+
+        // NOTE: all of the fields except the <shop> has no spaces
+        String[] smsFields = smsText.split("\\s+");
+        if (smsFields.length < 5) {
+            Log.w(MY_TAG, "Invalid Sberbank SMS");
+            return result;
+        }
+
+        // Parse credit card operation
+        AccountOperation cardOperation = parseOperationType(smsText);
+        if (cardOperation == AccountOperation.INVALID) {
+            Log.w(MY_TAG, "Invalid account operation in Sberbank SMS (1)");
+            return result;
+        }
+
+        // Read the credit ch
+        result = smsFields[0];
+        result = result.trim();
+        return result;
+    }
+
+    SberbankSms parseSberbankSms(String smsText) {
         SberbankSms result = new SberbankSms();
 
         // Sberbank SMS text example:
@@ -573,10 +736,10 @@ public class MyActivity extends AppCompatActivity {
         // Skip all credit cards except the specified one
         String creditCardId = smsFields[currentFieldIndex];
         creditCardId = creditCardId.trim();
-        if (creditCardId.compareTo(aCreditCardId) != 0) {
+        /* if (creditCardId.compareTo(aCreditCardId) != 0) {
             Log.w(MY_TAG, "Invalid credit card ID in Sberbank SMS");
             return result;
-        }
+        }*/
         currentFieldIndex++;
 
         // TODO: Parse spend operation date and time
