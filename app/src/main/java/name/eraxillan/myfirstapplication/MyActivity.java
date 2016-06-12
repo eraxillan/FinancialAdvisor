@@ -596,14 +596,6 @@ public class MyActivity extends AppCompatActivity {
 
         // Create the adapter to convert the array to views
         ArrayList<CostsCategory> categories = splitCostToCategories();
-
-        //
-        float totalPercent = 0.f;
-        for (CostsCategory cat : categories) {
-            totalPercent += cat.getTotalCostsPercent();
-        }
-        //
-
         CostsCategoryAdapter adapter = new CostsCategoryAdapter(this, categories);
         // Attach the adapter to a ListView
         ListView listView = (ListView) findViewById(R.id.lvMain);
@@ -736,10 +728,6 @@ public class MyActivity extends AppCompatActivity {
         // Skip all credit cards except the specified one
         String creditCardId = smsFields[currentFieldIndex];
         creditCardId = creditCardId.trim();
-        /* if (creditCardId.compareTo(aCreditCardId) != 0) {
-            Log.w(MY_TAG, "Invalid credit card ID in Sberbank SMS");
-            return result;
-        }*/
         currentFieldIndex++;
 
         // TODO: Parse spend operation date and time
@@ -792,8 +780,6 @@ public class MyActivity extends AppCompatActivity {
         }
         currentFieldIndex++;
 
-//        Log.w(MY_TAG, "Spent: " + sumRub + " rub");
-
         result.setOperation(cardOperation);
         result.setCardId(creditCardId);
         result.setDateTime(dateTime);
@@ -817,32 +803,6 @@ public class MyActivity extends AppCompatActivity {
 
         // We already have the permission to read SMS, so do it now
         processData();
-
-        //------------------------------------------------------------------------------------------
-        //float rentTotalSum = 0;
-        //float otherRemittanceSum = 0;
-
-        // FIXME:
-        // Find the ListView control object
-       /* ListView lvMain = (ListView)findViewById(R.id.lvMain);
-
-        // Create the data adapter: it used to fill the list with array items
-        String[] targets = new String[m_sms.size()];
-        int i = 0;
-        for( SberbankSms sms : m_sms ) {
-            targets[i++] = sms.getTarget();
-
-            if (sms.getOperation() == AccountOperation.REMITTANCE) {
-                if (sms.getSum() >= 20000) rentTotalSum += sms.getSum();
-                else otherRemittanceSum += sms.getSum();
-            }
-        }
-        Arrays.sort(targets, String.CASE_INSENSITIVE_ORDER);
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, targets);
-
-        // Link the adapter with the ListView
-        lvMain.setAdapter(adapter);*/
-        //------------------------------------------------------------------------------------------
     }
 
     @Override
