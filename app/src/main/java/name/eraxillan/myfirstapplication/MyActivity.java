@@ -430,8 +430,8 @@ public class MyActivity extends AppCompatActivity {
                     basicCommodities.addTarget("Да!", sms.getSum());
                     continue;
                 }
-                if (sms.getTarget().startsWith("ENGELSA")) {
-                    basicCommodities.addTarget("Магазин на ул. Энгельса", sms.getSum());
+                if (sms.getTarget().startsWith("ENGELSA") || sms.getTarget().startsWith("VOSKRESENSK ENGELSA")) {
+                    basicCommodities.addTarget("Куриный дом", sms.getSum());
                     continue;
                 }
                 if (sms.getTarget().compareTo("VOSKRESENSKHLEB") == 0) {
@@ -551,6 +551,10 @@ public class MyActivity extends AppCompatActivity {
                 }
                 if (sms.getTarget().compareTo("IKEA DOM 4RESTAURANT") == 0) {
                     publicCateringCommodities.addTarget("Ресторан Икеа", sms.getSum());
+                    continue;
+                }
+                if (sms.getTarget().startsWith("MY-")) {
+                    publicCateringCommodities.addTarget("Му-му", sms.getSum());
                     continue;
                 }
                 //----------------------------------------------------------------------------------
