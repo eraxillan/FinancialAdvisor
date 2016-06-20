@@ -19,6 +19,13 @@
         android:layout_height="wrap_content"
         app:layout_behavior="@string/appbar_scrolling_view_behavior"
         tools:context="name.eraxillan.myfirstapplication.MyActivity">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:text="From: "
+            android:textSize="22sp" />
+
         <TextView
             android:id="@+id/tvStartDate"
             android:layout_weight="1"
@@ -26,9 +33,14 @@
             android:layout_height="wrap_content"
             android:clickable="true"
             android:onClick="onStartDateClick"
-            android:text="Enter start date"
-            android:textSize="22sp">
-        </TextView>
+            android:text="<click>"
+            android:textSize="22sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:text="To: "
+            android:textSize="22sp" />
 
         <TextView
             android:id="@+id/tvEndDate"
@@ -36,9 +48,8 @@
             android:layout_height="wrap_content"
             android:clickable="true"
             android:onClick="onEndDateClick"
-            android:text="Enter end date"
-            android:textSize="22sp">
-        </TextView>
+            android:text="<click>"
+            android:textSize="22sp" />
     </LinearLayout>
 
     <ListView

@@ -179,8 +179,15 @@ public class MyActivity extends AppCompatActivity {
             m_startYear = year;
             m_startMonth = monthOfYear;
             m_startDay = dayOfMonth;
+
+            GregorianCalendar calStart = new GregorianCalendar(m_startYear, m_startMonth, m_startDay);
+            DateFormat df = DateFormat.getDateInstance(
+                    DateFormat.SHORT,
+                    Locale.getDefault());
             TextView tvDate = (TextView) findViewById(R.id.tvStartDate);
-            tvDate.setText("From: " + m_startDay + "." + (m_startMonth + 1) + "." + m_startYear);
+            if (tvDate != null) {
+                tvDate.setText(df.format(calStart.getTime()));
+            }
 
             reloadSmsData(m_sms, m_startYear, m_startMonth, m_startDay, m_endYear, m_endMonth, m_endDay);
         }
@@ -191,8 +198,15 @@ public class MyActivity extends AppCompatActivity {
             m_endYear = year;
             m_endMonth = monthOfYear;
             m_endDay = dayOfMonth;
+
+            GregorianCalendar calEnd = new GregorianCalendar(m_endYear, m_endMonth, m_endDay);
+            DateFormat df = DateFormat.getDateInstance(
+                    DateFormat.SHORT,
+                    Locale.getDefault());
             TextView tvDate = (TextView) findViewById(R.id.tvEndDate);
-            tvDate.setText("Till: " + m_endDay + "." + (m_endMonth + 1) + "." + m_endYear);
+            if (tvDate != null) {
+                tvDate.setText(df.format(calEnd.getTime()));
+            }
 
             reloadSmsData(m_sms, m_startYear, m_startMonth, m_startDay, m_endYear, m_endMonth, m_endDay);
         }
