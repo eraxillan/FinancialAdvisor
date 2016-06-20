@@ -33,7 +33,7 @@
             android:layout_height="wrap_content"
             android:clickable="true"
             android:onClick="onStartDateClick"
-            android:text="<click>"
+            android:text="&lt;click&gt;"
             android:textSize="22sp" />
 
         <TextView
@@ -48,7 +48,7 @@
             android:layout_height="wrap_content"
             android:clickable="true"
             android:onClick="onEndDateClick"
-            android:text="<click>"
+            android:text="&lt;click&gt;"
             android:textSize="22sp" />
     </LinearLayout>
 
