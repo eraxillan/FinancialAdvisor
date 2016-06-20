@@ -26,7 +26,9 @@ import java.text.DateFormat;
 import java.text.DecimalFormat;
 import java.text.ParseException;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
+import java.util.GregorianCalendar;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
@@ -117,23 +119,60 @@ public class MyActivity extends AppCompatActivity {
 
     ArrayList<SberbankSms> m_sms = null;
 
-    private float getTotalCosts() {
-        if (m_sms == null) return 0f;
+    private float getTotalCosts(ArrayList<SberbankSms> smsList) {
+        if (smsList == null) return 0f;
 
         float result = 0f;
-        for (SberbankSms sms : m_sms) result += sms.getSum();
+        for (SberbankSms sms : smsList) result += sms.getSum();
         return result;
     }
 
     //----------------------------------------------------------------------------------------------
     int DIALOG_START_DATE = 1;
-    int m_startYear = 2011;
-    int m_startMonth = 2;
-    int m_startDay = 3;
+    int m_startYear = -1;
+    int m_startMonth = -1;
+    int m_startDay = -1;
     int DIALOG_END_DATE = 2;
-    int m_endYear = 2011;
-    int m_endMonth = 2;
-    int m_endDay = 4;
+    int m_endYear = -1;
+    int m_endMonth = -1;
+    int m_endDay = -1;
+
+    boolean startDateValid() {
+        return (m_startYear > 0) && (m_startMonth >= 0) && (m_startDay > 0);
+    }
+
+    boolean endDateValid() {
+        return (m_endYear > 0) && (m_endMonth >= 0) && (m_endDay > 0);
+    }
+
+    GregorianCalendar minStartDate(ArrayList<SberbankSms> sms) {
+        GregorianCalendar cal = new GregorianCalendar();
+        cal.setTime(sms.get(sms.size() - 1).getDateTime());
+        return cal;
+    }
+
+    GregorianCalendar maxEndDate(ArrayList<SberbankSms> sms) {
+        GregorianCalendar cal = new GregorianCalendar();
+        cal.setTime(sms.get(0).getDateTime());
+        return cal;
+    }
+
+    void reloadSmsData(ArrayList<SberbankSms> sms, int fromYear, int fromMonth, int fromDay, int toYear, int toMonth, int toDay) {
+        // NOTE: month number in Java stdlib is zero-based
+        GregorianCalendar gregCalFrom = new GregorianCalendar(fromYear, fromMonth, fromDay);
+        GregorianCalendar gregCalTo   = new GregorianCalendar(toYear,   toMonth,   toDay  );
+        ArrayList<SberbankSms> smsRange = getSmsRange(sms, gregCalFrom.getTime(), gregCalTo.getTime());
+
+        // Create the adapter to convert the array to views
+        ArrayList<CostsCategory> categories = splitCostToCategories(smsRange);
+        CostsCategoryAdapter adapter = new CostsCategoryAdapter(this, categories);
+
+        // Attach the adapter to a ListView
+        ListView listView = (ListView) findViewById(R.id.lvMain);
+        if (listView != null) {
+            listView.setAdapter(adapter);
+        }
+    }
 
     DatePickerDialog.OnDateSetListener m_startDateCallback = new DatePickerDialog.OnDateSetListener() {
         public void onDateSet(DatePicker view, int year, int monthOfYear, int dayOfMonth) {
@@ -141,7 +180,9 @@ public class MyActivity extends AppCompatActivity {
             m_startMonth = monthOfYear;
             m_startDay = dayOfMonth;
             TextView tvDate = (TextView) findViewById(R.id.tvStartDate);
-            tvDate.setText("From: " + m_startDay + "." + (m_startMonth + 1) + "." + m_startDay);
+            tvDate.setText("From: " + m_startDay + "." + (m_startMonth + 1) + "." + m_startYear);
+
+            reloadSmsData(m_sms, m_startYear, m_startMonth, m_startDay, m_endYear, m_endMonth, m_endDay);
         }
     };
 
@@ -151,7 +192,9 @@ public class MyActivity extends AppCompatActivity {
             m_endMonth = monthOfYear;
             m_endDay = dayOfMonth;
             TextView tvDate = (TextView) findViewById(R.id.tvEndDate);
-            tvDate.setText("Till: " + m_endDay + "." + (m_endMonth + 1) + "." + m_endDay);
+            tvDate.setText("Till: " + m_endDay + "." + (m_endMonth + 1) + "." + m_endYear);
+
+            reloadSmsData(m_sms, m_startYear, m_startMonth, m_startDay, m_endYear, m_endMonth, m_endDay);
         }
     };
 
@@ -164,19 +207,35 @@ public class MyActivity extends AppCompatActivity {
     }
 
     protected Dialog onCreateDialog(int id) {
+        if (!startDateValid()) {
+            GregorianCalendar cal = minStartDate(m_sms);
+            m_startYear = cal.get(Calendar.YEAR);
+            m_startMonth = cal.get(Calendar.MONTH);
+            m_startDay = cal.get(Calendar.DAY_OF_MONTH);
+        }
+
+        if (!endDateValid()) {
+            GregorianCalendar cal = maxEndDate(m_sms);
+            m_endYear = cal.get(Calendar.YEAR);
+            m_endMonth = cal.get(Calendar.MONTH);
+            m_endDay = cal.get(Calendar.DAY_OF_MONTH);
+        }
+
         if (id == DIALOG_START_DATE) {
             DatePickerDialog tpd = new DatePickerDialog(this, m_startDateCallback, m_startYear, m_startMonth, m_startDay);
             return tpd;
         } else if (id == DIALOG_END_DATE) {
             DatePickerDialog tpd = new DatePickerDialog(this, m_endDateCallback, m_endYear, m_endMonth, m_endDay);
             return tpd;
+        } else {
+            Log.w(MY_TAG, "Unknown dialog requested");
         }
         return super.onCreateDialog(id);
     }
 
     //----------------------------------------------------------------------------------------------
 
-    private class SberbankSms {
+    class SberbankSms {
         private String m_cardId;
         private Date m_dateTime;
         private AccountOperation m_operation;
@@ -253,7 +312,7 @@ public class MyActivity extends AppCompatActivity {
         }
     }
 
-    private ArrayList<SberbankSms> readSberbankSms() {
+    ArrayList<SberbankSms> readSberbankSms() {
         ArrayList<SberbankSms> result = new ArrayList<SberbankSms>();
 
         Cursor cursor;
@@ -280,8 +339,10 @@ public class MyActivity extends AppCompatActivity {
 
                 SberbankSms sms = parseSberbankSms(smsText);
                 if (sms.isValid()) {
-                    Log.w(MY_TAG, "Skipping invalid Sberbank SMS");
                     result.add(sms);
+                }
+                else {
+                    Log.w(MY_TAG, "Skipping invalid Sberbank SMS");
                 }
 
             } while (cursor.moveToNext());
@@ -294,20 +355,29 @@ public class MyActivity extends AppCompatActivity {
         return result;
     }
 
-    ArrayList<CostsCategory> splitCostToCategories() {
-        ArrayList<String> categoryStrings = new ArrayList<>();
-        CostsCategory basicCommodities = new CostsCategory("Товары первой необходимости", getTotalCosts());
-        CostsCategory medicamentCommodities = new CostsCategory("Лекарства", getTotalCosts());
-        CostsCategory treatmentCommodities = new CostsCategory("Лечение", getTotalCosts());
-        CostsCategory transportCommodities = new CostsCategory("Транспорт", getTotalCosts());
-        CostsCategory communicationCommodities = new CostsCategory("Интернет и связь", getTotalCosts());
-        CostsCategory clothingShoesCommodities = new CostsCategory("Одежда и обувь", getTotalCosts());
-        CostsCategory nonEssentialsCommodities = new CostsCategory("Второстепенные товары", getTotalCosts());
-        CostsCategory publicCateringCommodities = new CostsCategory("Общепит", getTotalCosts());
-        CostsCategory remittances = new CostsCategory("Переводы, снятие наличных", getTotalCosts());
-        CostsCategory services = new CostsCategory("Оплата различных услуг", getTotalCosts());
+    ArrayList<SberbankSms> getSmsRange(ArrayList<SberbankSms> smsList, Date from, Date to) {
+        ArrayList<SberbankSms> result = new ArrayList<>();
+        for (SberbankSms sms : smsList) {
+            if (sms.getDateTime().after(from) && sms.getDateTime().before(to)) result.add(sms);
+        }
+        return result;
+    }
 
-        for (SberbankSms sms : m_sms) {
+    // FIXME: move categories data to external XML-file and make it editable in GUI
+    ArrayList<CostsCategory> splitCostToCategories(ArrayList<SberbankSms> smsList) {
+        ArrayList<String> categoryStrings = new ArrayList<>();
+        CostsCategory basicCommodities = new CostsCategory("Товары первой необходимости", getTotalCosts(smsList));
+        CostsCategory medicamentCommodities = new CostsCategory("Лекарства", getTotalCosts(smsList));
+        CostsCategory treatmentCommodities = new CostsCategory("Лечение", getTotalCosts(smsList));
+        CostsCategory transportCommodities = new CostsCategory("Транспорт", getTotalCosts(smsList));
+        CostsCategory communicationCommodities = new CostsCategory("Интернет и связь", getTotalCosts(smsList));
+        CostsCategory clothingShoesCommodities = new CostsCategory("Одежда и обувь", getTotalCosts(smsList));
+        CostsCategory nonEssentialsCommodities = new CostsCategory("Второстепенные товары", getTotalCosts(smsList));
+        CostsCategory publicCateringCommodities = new CostsCategory("Общепит", getTotalCosts(smsList));
+        CostsCategory remittances = new CostsCategory("Переводы, снятие наличных", getTotalCosts(smsList));
+        CostsCategory services = new CostsCategory("Оплата различных услуг", getTotalCosts(smsList));
+
+        for (SberbankSms sms : smsList) {
             if (sms.getOperation() == AccountOperation.PURCHASE) {
                 // Товары первой необходимости
                 if (sms.getTarget().startsWith("LUG DA POLE ")) {
@@ -576,8 +646,7 @@ public class MyActivity extends AppCompatActivity {
         return creditCardNameList;
     }
 
-    // TODO: sort by categories as original Android client do
-    private void processData() {
+    void processData() {
         if (m_sms != null) return;
 
         Log.i(MY_TAG, "Loading SMS data...");
@@ -595,7 +664,7 @@ public class MyActivity extends AppCompatActivity {
         }
 
         // Create the adapter to convert the array to views
-        ArrayList<CostsCategory> categories = splitCostToCategories();
+        ArrayList<CostsCategory> categories = splitCostToCategories(m_sms);
         CostsCategoryAdapter adapter = new CostsCategoryAdapter(this, categories);
         // Attach the adapter to a ListView
         ListView listView = (ListView) findViewById(R.id.lvMain);
