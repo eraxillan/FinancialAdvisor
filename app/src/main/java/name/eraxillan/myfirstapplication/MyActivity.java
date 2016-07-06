@@ -22,6 +22,9 @@ import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.math.BigDecimal;
+import java.math.MathContext;
+import java.math.RoundingMode;
 import java.text.DateFormat;
 import java.text.DecimalFormat;
 import java.text.ParseException;
@@ -43,34 +46,36 @@ public class MyActivity extends AppCompatActivity {
     // Категория затрат
     class CostsCategory {
         String m_displayName;   // User-friendly название категории
-        float m_userTotalCosts;     // Общие затраты пользователя (на все категории) за весь период
+        BigDecimal m_userTotalCosts;     // Общие затраты пользователя (на все категории) за весь период
 
-        float m_totalCosts;       // Сколько всего денег потрачено на данную категорию товаров/услуг
-        float m_totalPercent;   // Какой % от общих расходов за период занимает указанная категория
+        BigDecimal m_totalCosts;         // Сколько всего денег потрачено на данную категорию товаров/услуг
+        float m_totalPercent;            // Какой % от общих расходов за период занимает указанная категория
         // User-friendly список получателей и общих затрат на них (например, McDonalds, 5400р)
-        TreeMap<String, Float> m_targets;
+        TreeMap<String, BigDecimal> m_targets;
 
-        public CostsCategory(String displayName, float userTotalCosts) {
+        public CostsCategory(String displayName, BigDecimal userTotalCosts) {
             m_displayName = displayName;
             m_userTotalCosts = userTotalCosts;
-
+            m_totalCosts = BigDecimal.ZERO;
+            m_totalPercent = 0.0f;
             m_targets = new TreeMap<>();
         }
 
-        public void addTarget(String displayName, float costs) {
+        public void addTarget(String displayName, BigDecimal costs) {
             if (!m_targets.containsKey(displayName)) m_targets.put(displayName, costs);
-            else m_targets.put(displayName, m_targets.get(displayName) + costs);
+            else m_targets.put(displayName, m_targets.get(displayName).add(costs));
         }
 
         public String getDisplayName() { return m_displayName; }
 
-        public float getTotalCosts() {
-            if (m_totalCosts > 0) return m_totalCosts;
+        public BigDecimal getTotalCosts() {
+            if (m_totalCosts.compareTo(BigDecimal.ZERO) == 1) return m_totalCosts;
 
-            for (Map.Entry<String, Float> entry : m_targets.entrySet()) {
-                m_totalCosts += entry.getValue();
+            for (Map.Entry<String, BigDecimal> entry : m_targets.entrySet()) {
+                m_totalCosts = m_totalCosts.add(entry.getValue());
             }
-            m_totalPercent = (m_totalCosts / m_userTotalCosts)*100f;
+
+            m_totalPercent = (m_totalCosts.divide(m_userTotalCosts, 2, RoundingMode.HALF_DOWN).floatValue())*100f;
             return m_totalCosts;
         }
 
@@ -119,11 +124,11 @@ public class MyActivity extends AppCompatActivity {
 
     ArrayList<SberbankSms> m_sms = null;
 
-    private float getTotalCosts(ArrayList<SberbankSms> smsList) {
-        if (smsList == null) return 0f;
+    private BigDecimal getTotalCosts(ArrayList<SberbankSms> smsList) {
+        if (smsList == null) return BigDecimal.ZERO;
 
-        float result = 0f;
-        for (SberbankSms sms : smsList) result += sms.getSum();
+        BigDecimal result = BigDecimal.ZERO;
+        for (SberbankSms sms : smsList) result = result.add(sms.getSum());
         return result;
     }
 
@@ -253,26 +258,26 @@ public class MyActivity extends AppCompatActivity {
         private String m_cardId;
         private Date m_dateTime;
         private AccountOperation m_operation;
-        private float m_sum;
+        private BigDecimal m_sum;
         private String m_target;
-        private float m_balance;
+        private BigDecimal m_balance;
 
         SberbankSms() {
             m_cardId = "";
             m_dateTime = new Date(0);
             m_operation = AccountOperation.INVALID;
-            m_sum = 0;
+            m_sum = BigDecimal.ZERO;
             m_target = "";
-            m_balance = 0;
+            m_balance = BigDecimal.ZERO;
         }
 
         public boolean isValid() {
             if (m_cardId.isEmpty()) return false;
             if (m_dateTime.getTime() <= 0) return false;
             if (m_operation == AccountOperation.INVALID) return false;
-            if (m_sum <= 0) return false;
+            if (m_sum.compareTo(BigDecimal.ZERO) <= 0) return false;
             if (m_target.isEmpty()) return false;
-            if (m_balance <= 0) return false;
+            if (m_balance.compareTo(BigDecimal.ZERO) <= 0) return false;
 
             return true;
         }
@@ -301,10 +306,10 @@ public class MyActivity extends AppCompatActivity {
             m_operation = anOperation;
         }
 
-        public float getSum() {
+        public BigDecimal getSum() {
             return m_sum;
         }
-        public void setSum(float aSum) {
+        public void setSum(BigDecimal aSum) {
             // TODO: arg check
             m_sum = aSum;
         }
@@ -317,10 +322,10 @@ public class MyActivity extends AppCompatActivity {
             m_target = aTarget;
         }
 
-        public float getBalance() {
+        public BigDecimal getBalance() {
             return m_balance;
         }
-        public void setBalance(float aBalance) {
+        public void setBalance(BigDecimal aBalance) {
             // TODO: arg check
             m_balance = aBalance;
         }
@@ -726,16 +731,16 @@ public class MyActivity extends AppCompatActivity {
         return (-1);
     }
 
-    float parseSumInRoubles(String sumStr) {
-        if(!sumStr.endsWith("р")) return (-1);
+    BigDecimal parseSumInRoubles(String sumStr) {
+        if(!sumStr.endsWith("р")) return BigDecimal.ONE.negate();
         sumStr = sumStr.substring(0, sumStr.length() - 1);
-        float result;
+        BigDecimal result;
         try {
-            result = Float.parseFloat(sumStr);
+            result = new BigDecimal(sumStr);
         }
         catch (NumberFormatException exc) {
             Log.e(MY_TAG, "Unable to parse " + sumStr + " as roubles sum");
-            return (-1);
+            return BigDecimal.ONE.negate();
         }
         return result;
     }
@@ -828,9 +833,9 @@ public class MyActivity extends AppCompatActivity {
 
         // Parse spent sum (required)
         // TODO: only roubles currency is currently supported
-        float sumRub = parseSumInRoubles(smsFields[currentFieldIndex]);
+        BigDecimal sumRub = parseSumInRoubles(smsFields[currentFieldIndex]);
         // FIXME: handle mobile bank payment and "ОТКАЗ" here
-        if (sumRub < 0) {
+        if (sumRub.compareTo(BigDecimal.ZERO) <= 0) {
             Log.w(MY_TAG, "Invalid sum in Sberbank SMS");
             return result;
         }
@@ -860,8 +865,8 @@ public class MyActivity extends AppCompatActivity {
         }
 
         // Parse balance
-        float balanceRub = parseSumInRoubles(smsFields[currentFieldIndex]);
-        if (balanceRub < 0) {
+        BigDecimal balanceRub = parseSumInRoubles(smsFields[currentFieldIndex]);
+        if (balanceRub.compareTo(BigDecimal.ZERO) <= 0) {
             Log.w(MY_TAG, "Invalid balance in Sberbank SMS");
             return result;
         }
