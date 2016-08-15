@@ -451,7 +451,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_my);
+        setContentView(R.layout.activity_main);
 
         // API Level 23 introduces new Runtime Permissions system:
         // each app now needs to check permission each time it need it, not the one time during install
