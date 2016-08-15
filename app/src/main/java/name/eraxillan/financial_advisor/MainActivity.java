@@ -32,7 +32,7 @@ import java.util.GregorianCalendar;
 import java.util.HashSet;
 import java.util.Locale;
 
-public class MyActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity {
     final private String MY_TAG = "SBRF Financial Advisor";
     final private int REQUEST_CODE_ASK_PERMISSIONS = 123;
     final private String m_currentLanguage = "ru";
