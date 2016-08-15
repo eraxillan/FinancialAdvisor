@@ -1,4 +1,4 @@
-package name.eraxillan.myfirstapplication;
+package name.eraxillan.financial_advisor;
 
 import org.junit.Test;
 

@@ -1,4 +1,4 @@
-package name.eraxillan.myfirstapplication;
+package name.eraxillan.financial_advisor;
 
 import android.app.DatePickerDialog;
 import android.app.Dialog;
